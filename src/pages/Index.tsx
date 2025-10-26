@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Icon from "@/components/ui/icon";
 import { AdminPanel } from "@/components/AdminPanel";
-import { LoginPage } from "@/components/LoginPage";
+import { LoginDialog } from "@/components/LoginDialog";
 
 interface Contact {
   id: number;
@@ -21,74 +21,32 @@ interface NewsItem {
   description: string;
 }
 
-interface User {
-  id: number;
-  username: string;
-  role: string;
-}
-
 const CONTACTS_URL = "https://functions.poehali.dev/8ac292f9-91df-4949-911c-f0fee6ad4870";
-const NEWS_URL = "https://functions.poehali.dev/747ed546-8975-4aa7-8e70-93b99f858cad";
-const AUTH_URL = "https://functions.poehali.dev/26237d07-d352-46bf-852b-1ec3f06d3086";
 
 const Index = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [news, setNews] = useState<NewsItem[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [sessionToken, setSessionToken] = useState<string | null>(localStorage.getItem('sessionToken'));
-  const [user, setUser] = useState<User | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(localStorage.getItem('session_token'));
 
   const fetchData = async () => {
-    const [contactsRes, newsRes] = await Promise.all([
-      fetch(CONTACTS_URL),
-      fetch(NEWS_URL)
-    ]);
+    const contactsRes = await fetch(CONTACTS_URL);
     setContacts(await contactsRes.json());
-    setNews(await newsRes.json());
   };
 
   useEffect(() => {
     fetchData();
-    if (sessionToken) {
-      checkAuth();
-    }
   }, []);
 
-  const checkAuth = async () => {
-    if (!sessionToken) return;
-    
-    try {
-      const response = await fetch(AUTH_URL, {
-        headers: { 'X-Session-Token': sessionToken }
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        localStorage.removeItem('sessionToken');
-        setSessionToken(null);
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    }
-  };
-
-  const handleLogin = (token: string, role: string) => {
-    localStorage.setItem('sessionToken', token);
+  const handleLogin = (token: string) => {
     setSessionToken(token);
-    setUser({ id: 0, username: '', role });
     setLoginOpen(false);
     setAdminOpen(true);
-    checkAuth();
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('sessionToken');
+    localStorage.removeItem('session_token');
     setSessionToken(null);
-    setUser(null);
     setAdminOpen(false);
   };
 
@@ -150,7 +108,7 @@ const Index = () => {
         </div>
 
         <div className="mt-16 text-center flex gap-4 justify-center">
-          {user ? (
+          {sessionToken ? (
             <>
               <Button 
                 variant="outline" 
@@ -182,8 +140,8 @@ const Index = () => {
         </div>
       </div>
 
-      {loginOpen && <LoginPage onLogin={handleLogin} />}
-      {user && <AdminPanel open={adminOpen} onOpenChange={setAdminOpen} onDataUpdate={fetchData} sessionToken={sessionToken} user={user} />}
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} onLogin={handleLogin} />
+      <AdminPanel open={adminOpen} onOpenChange={setAdminOpen} onDataUpdate={fetchData} sessionToken={sessionToken} />
     </div>
   );
 };

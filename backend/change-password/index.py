@@ -1,6 +1,6 @@
 '''
-Business: Смена пароля для пользователей
-Args: event с httpMethod, body, headers; context с request_id
+Business: Смена пароля администратора
+Args: event с httpMethod, body; context с request_id
 Returns: HTTP response со статусом операции
 '''
 
@@ -19,7 +19,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
+                'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
             'body': ''
@@ -32,62 +32,60 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'Метод не поддерживается'})
         }
     
+    body = json.loads(event.get('body', '{}'))
+    old_password = body.get('old_password')
+    new_password = body.get('new_password')
+    
+    if not old_password or not new_password:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Требуется старый и новый пароль'})
+        }
+    
+    if len(new_password) < 6:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Новый пароль должен быть не менее 6 символов'})
+        }
+    
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
     
     try:
-        headers = event.get('headers', {})
-        session_token = headers.get('x-session-token') or headers.get('X-Session-Token')
+        # Получаем текущий хеш пароля
+        cur.execute("SELECT value FROM settings WHERE key = 'admin_password'")
+        password_record = cur.fetchone()
         
-        if not session_token:
+        if not password_record:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Ошибка конфигурации'})
+            }
+        
+        current_hash = password_record[0]
+        current_hash_bytes = current_hash if isinstance(current_hash, bytes) else current_hash.encode('utf-8')
+        
+        # Проверяем старый пароль
+        if not bcrypt.checkpw(old_password.encode('utf-8'), current_hash_bytes):
             return {
                 'statusCode': 401,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Требуется авторизация'})
-            }
-        
-        cur.execute("""
-            SELECT u.id, u.password_hash 
-            FROM sessions s
-            JOIN users u ON s.user_id = u.id
-            WHERE s.session_token = %s AND s.expires_at > NOW()
-        """, (session_token,))
-        
-        user = cur.fetchone()
-        
-        if not user:
-            return {
-                'statusCode': 401,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Неверный токен'})
-            }
-        
-        user_id, current_hash = user
-        
-        body = json.loads(event.get('body', '{}'))
-        old_password = body.get('old_password')
-        new_password = body.get('new_password')
-        
-        if not old_password or not new_password:
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Требуется старый и новый пароль'})
-            }
-        
-        if not bcrypt.checkpw(old_password.encode('utf-8'), current_hash.encode('utf-8')):
-            return {
-                'statusCode': 400,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'error': 'Неверный текущий пароль'})
             }
         
+        # Генерируем новый хеш
         new_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
-        cur.execute(
-            "UPDATE users SET password_hash = %s WHERE id = %s",
-            (new_hash, user_id)
-        )
+        # Обновляем пароль
+        cur.execute("""
+            UPDATE settings 
+            SET value = %s, updated_at = NOW() 
+            WHERE key = 'admin_password'
+        """, (new_hash,))
+        
         conn.commit()
         
         return {

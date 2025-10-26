@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  DndContext,
+  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -13,29 +17,45 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
+  SortableContext,
   sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Contact, Editor, User, CONTACTS_URL, EDITORS_URL, CHANGE_PASSWORD_URL } from "./admin/types";
-import { ChangePasswordForm } from "./admin/ChangePasswordForm";
-import { ContactsTab } from "./admin/ContactsTab";
-import { EditorsTab } from "./admin/EditorsTab";
+import { SortableContact } from "./admin/SortableContact";
+
+const CONTACTS_URL = "https://functions.poehali.dev/8ac292f9-91df-4949-911c-f0fee6ad4870";
+const CHANGE_PASSWORD_URL = "https://functions.poehali.dev/29b968a6-e9e5-41e9-a806-fd45fb51170f";
+
+interface Contact {
+  id: number;
+  name: string;
+  role: string;
+  telegram: string;
+  color: string;
+  order_index: number;
+}
 
 interface AdminPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDataUpdate: () => void;
   sessionToken: string | null;
-  user: User | null;
 }
 
-export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, user }: AdminPanelProps) => {
+const colorOptions = [
+  { value: 'from-purple-500 to-pink-500', label: '🟣 Фиолетовый → Розовый' },
+  { value: 'from-blue-500 to-cyan-500', label: '🔵 Синий → Голубой' },
+  { value: 'from-green-500 to-emerald-500', label: '🟢 Зеленый → Изумрудный' },
+  { value: 'from-orange-500 to-red-500', label: '🟠 Оранжевый → Красный' },
+  { value: 'from-pink-500 to-rose-500', label: '🌸 Розовый → Алый' },
+  { value: 'from-yellow-500 to-orange-500', label: '🟡 Желтый → Оранжевый' },
+];
+
+export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken }: AdminPanelProps) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [editors, setEditors] = useState<Editor[]>([]);
   const [editingContact, setEditingContact] = useState<Partial<Contact> | null>(null);
-  const [newEditor, setNewEditor] = useState({ username: '', password: '' });
-  const [changePassword, setChangePassword] = useState({ old: '', new: '', confirm: '' });
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
+  const [changePassword, setChangePassword] = useState({ old: '', new: '', confirm: '' });
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -50,29 +70,11 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
     setContacts(data);
   };
 
-  const fetchEditors = async () => {
-    if (!sessionToken || user?.role !== 'superadmin') return;
-    const response = await fetch(EDITORS_URL, {
-      headers: { 'X-Session-Token': sessionToken }
-    });
-    if (response.ok) {
-      const data = await response.json();
-      setEditors(data);
-      
-      const map: Record<number, string> = { [user.id]: 'admin' };
-      data.forEach((editor: Editor) => {
-        map[editor.id] = editor.username;
-      });
-      setUsersMap(map);
-    }
-  };
-
   useEffect(() => {
     if (open) {
       fetchContacts();
-      fetchEditors();
     }
-  }, [open, sessionToken, user]);
+  }, [open]);
 
   const saveContact = async () => {
     if (!editingContact?.name || !editingContact?.role || !editingContact?.telegram) {
@@ -113,6 +115,7 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
       method: 'DELETE',
       headers: { 'X-Session-Token': sessionToken || '' }
     });
+    
     if (response.ok) {
       toast.success("Контакт удален");
       fetchContacts();
@@ -120,43 +123,6 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
     } else {
       const error = await response.json();
       toast.error(error.error || "Ошибка удаления");
-    }
-  };
-
-  const addEditor = async () => {
-    if (!newEditor.username || !newEditor.password) {
-      toast.error("Заполните все поля");
-      return;
-    }
-
-    const response = await fetch(EDITORS_URL, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Session-Token': sessionToken || ''
-      },
-      body: JSON.stringify(newEditor)
-    });
-
-    if (response.ok) {
-      toast.success("Редактор добавлен");
-      setNewEditor({ username: '', password: '' });
-      fetchEditors();
-    } else {
-      const error = await response.json();
-      toast.error(error.error || "Ошибка добавления редактора");
-    }
-  };
-
-  const deleteEditor = async (id: number) => {
-    const response = await fetch(`${EDITORS_URL}?id=${id}`, { 
-      method: 'DELETE',
-      headers: { 'X-Session-Token': sessionToken || '' }
-    });
-    
-    if (response.ok) {
-      toast.success("Редактор удален");
-      fetchEditors();
     }
   };
 
@@ -205,11 +171,15 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
       return;
     }
 
+    if (changePassword.new.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+
     const response = await fetch(CHANGE_PASSWORD_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Session-Token': sessionToken || ''
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         old_password: changePassword.old,
@@ -248,48 +218,135 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
         </DialogHeader>
 
         {showChangePassword && (
-          <ChangePasswordForm
-            changePassword={changePassword}
-            setChangePassword={setChangePassword}
-            onSave={handleChangePassword}
-            onCancel={() => setShowChangePassword(false)}
-          />
+          <Card className="p-6 bg-slate-900 border-yellow-500/30">
+            <h3 className="text-lg font-bold text-white mb-4">Смена пароля</h3>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-gray-300">Текущий пароль</Label>
+                <Input
+                  type="password"
+                  value={changePassword.old}
+                  onChange={(e) => setChangePassword({ ...changePassword, old: e.target.value })}
+                  className="bg-slate-800 border-slate-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Новый пароль</Label>
+                <Input
+                  type="password"
+                  value={changePassword.new}
+                  onChange={(e) => setChangePassword({ ...changePassword, new: e.target.value })}
+                  className="bg-slate-800 border-slate-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Подтвердите новый пароль</Label>
+                <Input
+                  type="password"
+                  value={changePassword.confirm}
+                  onChange={(e) => setChangePassword({ ...changePassword, confirm: e.target.value })}
+                  className="bg-slate-800 border-slate-700 text-white"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleChangePassword} className="bg-green-600 hover:bg-green-700">
+                  Сохранить
+                </Button>
+                <Button onClick={() => setShowChangePassword(false)} variant="outline">
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          </Card>
         )}
 
-        <Tabs defaultValue="contacts" className="w-full">
-          <TabsList className={`grid w-full ${user?.role === 'superadmin' ? 'grid-cols-2' : 'grid-cols-1'} bg-slate-900`}>
-            <TabsTrigger value="contacts">Контакты</TabsTrigger>
-            {user?.role === 'superadmin' && (
-              <TabsTrigger value="editors">Редакторы</TabsTrigger>
-            )}
-          </TabsList>
+        <div className="space-y-4">
+          <Button 
+            onClick={() => setEditingContact({ color: 'from-purple-500 to-pink-500' })}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            <Icon name="Plus" size={18} className="mr-2" />
+            Добавить контакт
+          </Button>
 
-          <TabsContent value="contacts" className="space-y-4">
-            <ContactsTab
-              contacts={contacts}
-              editingContact={editingContact}
-              setEditingContact={setEditingContact}
-              saveContact={saveContact}
-              deleteContact={deleteContact}
-              handleDragEnd={handleDragEnd}
-              sensors={sensors}
-              user={user}
-              usersMap={usersMap}
-            />
-          </TabsContent>
-
-          {user?.role === 'superadmin' && (
-            <TabsContent value="editors" className="space-y-4">
-              <EditorsTab
-                editors={editors}
-                newEditor={newEditor}
-                setNewEditor={setNewEditor}
-                addEditor={addEditor}
-                deleteEditor={deleteEditor}
-              />
-            </TabsContent>
+          {editingContact && (
+            <Card className="p-6 bg-slate-900 border-purple-500/30">
+              <h3 className="text-lg font-bold text-white mb-4">
+                {editingContact.id ? 'Редактировать контакт' : 'Новый контакт'}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-gray-300">Имя</Label>
+                  <Input
+                    value={editingContact.name || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Должность</Label>
+                  <Input
+                    value={editingContact.role || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, role: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Telegram (без @)</Label>
+                  <Input
+                    value={editingContact.telegram || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, telegram: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-white"
+                    placeholder="username"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Цвет градиента</Label>
+                  <select
+                    value={editingContact.color || 'from-purple-500 to-pink-500'}
+                    onChange={(e) => setEditingContact({ ...editingContact, color: e.target.value })}
+                    className="w-full p-2 rounded-md bg-slate-800 border border-slate-700 text-white"
+                  >
+                    {colorOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={saveContact} className="bg-green-600 hover:bg-green-700">
+                    Сохранить
+                  </Button>
+                  <Button onClick={() => setEditingContact(null)} variant="outline">
+                    Отмена
+                  </Button>
+                </div>
+              </div>
+            </Card>
           )}
-        </Tabs>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={contacts.map(c => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {contacts.map(contact => (
+                  <SortableContact
+                    key={contact.id}
+                    contact={contact}
+                    onEdit={setEditingContact}
+                    onDelete={deleteContact}
+                    canEdit={true}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
       </DialogContent>
     </Dialog>
   );
