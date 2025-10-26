@@ -32,10 +32,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         if method == 'POST':
-            body_str = event.get('body') or '{}'
-            if body_str.strip() == '':
-                body_str = '{}'
-            body = json.loads(body_str)
+            body_str = event.get('body')
+            if not body_str or (isinstance(body_str, str) and body_str.strip() == ''):
+                body = {}
+            else:
+                body = json.loads(body_str)
             password = body.get('password')
             
             # Получаем IP адрес из requestContext
