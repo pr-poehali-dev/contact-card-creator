@@ -98,41 +98,6 @@ const Index = () => {
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center gap-3 mb-8">
-            <Icon name="Newspaper" className="text-cyan-400" size={32} />
-            <h2 className="text-3xl font-bold text-white">Новости</h2>
-          </div>
-          
-          <div className="space-y-4">
-            {news.map((item, index) => (
-              <Card 
-                key={item.id}
-                className="group bg-white/5 backdrop-blur-xl border-white/10 hover:bg-white/10 transition-all duration-300 hover:translate-x-2"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">
-                        {item.title}
-                      </h3>
-                      <p className="text-gray-400 mb-3">
-                        {item.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Icon name="Calendar" size={16} />
-                        <span>{item.date}</span>
-                      </div>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${contacts[index % contacts.length].color} group-hover:scale-150 transition-transform duration-300`} />
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
         <div className="mt-16 text-center">
           <Button 
             variant="outline" 
