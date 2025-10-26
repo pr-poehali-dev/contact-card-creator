@@ -53,9 +53,7 @@ const Index = () => {
       
       <div className="relative z-10 container mx-auto px-4 py-16 max-w-6xl">
         <div className="text-center mb-16 animate-fade-in">
-          <h1 className="text-6xl md:text-7xl font-black mb-6 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent leading-tight">
-            Свяжитесь с нами
-          </h1>
+          <h1 className="text-6xl md:text-7xl font-black mb-6 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent leading-tight">Slivki Ghetto</h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Наша команда всегда готова ответить на ваши вопросы
           </p>
