@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Тест смены пароля без токена",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "old_password": "admin123",
+        "new_password": "newpass123"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

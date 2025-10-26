@@ -8,7 +8,7 @@
       "bodyMatcher": "skip"
     },
     {
-      "name": "Create new contact",
+      "name": "Create contact requires auth",
       "method": "POST",
       "path": "/",
       "body": {
@@ -17,11 +17,9 @@
         "telegram": "testuser",
         "color": "from-green-500 to-blue-500"
       },
-      "expectedStatus": 201,
+      "expectedStatus": 401,
       "expectedBody": {
-        "name": "Тест Контакт",
-        "role": "Тестировщик",
-        "telegram": "testuser"
+        "error": "string"
       },
       "bodyMatcher": "partial"
     }
