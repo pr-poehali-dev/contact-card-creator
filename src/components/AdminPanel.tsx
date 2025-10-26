@@ -1,15 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -18,34 +13,12 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
-interface Contact {
-  id: number;
-  name: string;
-  role: string;
-  telegram: string;
-  color: string;
-  created_by?: number | null;
-  order_index?: number;
-}
-
-interface Editor {
-  id: number;
-  username: string;
-  created_at: string;
-}
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-}
+import { Contact, Editor, User, CONTACTS_URL, EDITORS_URL, CHANGE_PASSWORD_URL } from "./admin/types";
+import { ChangePasswordForm } from "./admin/ChangePasswordForm";
+import { ContactsTab } from "./admin/ContactsTab";
+import { EditorsTab } from "./admin/EditorsTab";
 
 interface AdminPanelProps {
   open: boolean;
@@ -54,85 +27,6 @@ interface AdminPanelProps {
   sessionToken: string | null;
   user: User | null;
 }
-
-const CONTACTS_URL = "https://functions.poehali.dev/8ac292f9-91df-4949-911c-f0fee6ad4870";
-const EDITORS_URL = "https://functions.poehali.dev/419aca2d-b4f5-4523-8db0-dd42edf442f4";
-const CHANGE_PASSWORD_URL = "https://functions.poehali.dev/29b968a6-e9e5-41e9-a806-fd45fb51170f";
-
-const colorOptions = [
-  { value: "from-purple-500 to-pink-500", label: "Фиолетово-розовый" },
-  { value: "from-blue-500 to-cyan-500", label: "Сине-голубой" },
-  { value: "from-violet-500 to-purple-500", label: "Фиолетовый" },
-  { value: "from-green-500 to-emerald-500", label: "Зеленый" },
-  { value: "from-orange-500 to-red-500", label: "Оранжево-красный" },
-  { value: "from-pink-500 to-rose-500", label: "Розовый" }
-];
-
-interface SortableContactProps {
-  contact: Contact;
-  onEdit: (contact: Contact) => void;
-  onDelete: (id: number) => void;
-  canEdit: boolean;
-  editorName?: string;
-}
-
-const SortableContact = ({ contact, onEdit, onDelete, canEdit, editorName }: SortableContactProps) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: contact.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <Card ref={setNodeRef} style={style} className="p-4 bg-slate-900 border-slate-700">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1">
-          <div {...attributes} {...listeners} className="cursor-move touch-none">
-            <Icon name="GripVertical" size={20} className="text-gray-500" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-bold text-white">{contact.name}</h4>
-            <p className="text-sm text-gray-400">{contact.role}</p>
-            <p className="text-sm text-gray-500">@{contact.telegram}</p>
-            {editorName && (
-              <p className="text-xs text-cyan-400 mt-1">
-                <Icon name="User" size={12} className="inline mr-1" />
-                Создал: {editorName}
-              </p>
-            )}
-          </div>
-        </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onEdit(contact)}
-              className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10"
-            >
-              <Icon name="Edit" size={16} />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onDelete(contact.id)}
-              className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-            >
-              <Icon name="Trash2" size={16} />
-            </Button>
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-};
 
 export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, user }: AdminPanelProps) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -354,46 +248,12 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
         </DialogHeader>
 
         {showChangePassword && (
-          <Card className="p-6 bg-slate-900 border-cyan-500/30 mb-4">
-            <h3 className="text-lg font-bold text-white mb-4">Смена пароля</h3>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-gray-300">Текущий пароль</Label>
-                <Input
-                  type="password"
-                  value={changePassword.old}
-                  onChange={(e) => setChangePassword({ ...changePassword, old: e.target.value })}
-                  className="bg-slate-800 border-slate-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-gray-300">Новый пароль</Label>
-                <Input
-                  type="password"
-                  value={changePassword.new}
-                  onChange={(e) => setChangePassword({ ...changePassword, new: e.target.value })}
-                  className="bg-slate-800 border-slate-700 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-gray-300">Подтвердите новый пароль</Label>
-                <Input
-                  type="password"
-                  value={changePassword.confirm}
-                  onChange={(e) => setChangePassword({ ...changePassword, confirm: e.target.value })}
-                  className="bg-slate-800 border-slate-700 text-white"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleChangePassword} className="bg-green-600 hover:bg-green-700">
-                  Сохранить
-                </Button>
-                <Button onClick={() => setShowChangePassword(false)} variant="outline">
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <ChangePasswordForm
+            changePassword={changePassword}
+            setChangePassword={setChangePassword}
+            onSave={handleChangePassword}
+            onCancel={() => setShowChangePassword(false)}
+          />
         )}
 
         <Tabs defaultValue="contacts" className="w-full">
@@ -405,179 +265,28 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
           </TabsList>
 
           <TabsContent value="contacts" className="space-y-4">
-            <Button 
-              onClick={() => setEditingContact({ color: 'from-purple-500 to-pink-500' })}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-            >
-              <Icon name="Plus" size={18} className="mr-2" />
-              Добавить контакт
-            </Button>
-
-            {editingContact && (
-              <Card className="p-6 bg-slate-900 border-purple-500/30">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  {editingContact.id ? 'Редактировать контакт' : 'Новый контакт'}
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-gray-300">Имя</Label>
-                    <Input
-                      value={editingContact.name || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Должность</Label>
-                    <Input
-                      value={editingContact.role || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, role: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Telegram (без @)</Label>
-                    <Input
-                      value={editingContact.telegram || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, telegram: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                      placeholder="username"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Цвет градиента</Label>
-                    <select
-                      value={editingContact.color || 'from-purple-500 to-pink-500'}
-                      onChange={(e) => setEditingContact({ ...editingContact, color: e.target.value })}
-                      className="w-full p-2 rounded-md bg-slate-800 border border-slate-700 text-white"
-                    >
-                      {colorOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={saveContact} className="bg-green-600 hover:bg-green-700">
-                      Сохранить
-                    </Button>
-                    <Button onClick={() => setEditingContact(null)} variant="outline">
-                      Отмена
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {user?.role === 'superadmin' ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={contacts.map(c => c.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-3">
-                    {contacts.map(contact => (
-                      <SortableContact
-                        key={contact.id}
-                        contact={contact}
-                        onEdit={setEditingContact}
-                        onDelete={deleteContact}
-                        canEdit={true}
-                        editorName={contact.created_by ? usersMap[contact.created_by] : undefined}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            ) : (
-              <div className="space-y-3">
-                {contacts.filter(c => c.created_by === user?.id).map(contact => (
-                  <Card key={contact.id} className="p-4 bg-slate-900 border-slate-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">{contact.name}</h4>
-                        <p className="text-sm text-gray-400">{contact.role}</p>
-                        <p className="text-sm text-gray-500">@{contact.telegram}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingContact(contact)}
-                          className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10"
-                        >
-                          <Icon name="Edit" size={16} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteContact(contact.id)}
-                          className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-                        >
-                          <Icon name="Trash2" size={16} />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <ContactsTab
+              contacts={contacts}
+              editingContact={editingContact}
+              setEditingContact={setEditingContact}
+              saveContact={saveContact}
+              deleteContact={deleteContact}
+              handleDragEnd={handleDragEnd}
+              sensors={sensors}
+              user={user}
+              usersMap={usersMap}
+            />
           </TabsContent>
 
           {user?.role === 'superadmin' && (
             <TabsContent value="editors" className="space-y-4">
-              <Card className="p-6 bg-slate-900 border-purple-500/30">
-                <h3 className="text-lg font-bold text-white mb-4">Добавить редактора</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-gray-300">Логин</Label>
-                    <Input
-                      value={newEditor.username}
-                      onChange={(e) => setNewEditor({ ...newEditor, username: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                      placeholder="editor1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Пароль</Label>
-                    <Input
-                      type="password"
-                      value={newEditor.password}
-                      onChange={(e) => setNewEditor({ ...newEditor, password: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <Button onClick={addEditor} className="bg-green-600 hover:bg-green-700">
-                    <Icon name="UserPlus" size={18} className="mr-2" />
-                    Добавить
-                  </Button>
-                </div>
-              </Card>
-
-              <div className="space-y-3">
-                {editors.map(editor => (
-                  <Card key={editor.id} className="p-4 bg-slate-900 border-slate-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">{editor.username}</h4>
-                        <p className="text-xs text-gray-500">Создан: {new Date(editor.created_at).toLocaleDateString()}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => deleteEditor(editor.id)}
-                        className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-                      >
-                        <Icon name="Trash2" size={16} />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+              <EditorsTab
+                editors={editors}
+                newEditor={newEditor}
+                setNewEditor={setNewEditor}
+                addEditor={addEditor}
+                deleteEditor={deleteEditor}
+              />
             </TabsContent>
           )}
         </Tabs>
