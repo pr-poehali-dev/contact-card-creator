@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Тест входа с неверными данными",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "username": "wronguser",
+        "password": "wrongpass"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Тест проверки без токена",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

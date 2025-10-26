@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Icon from "@/components/ui/icon";
 import { AdminPanel } from "@/components/AdminPanel";
+import { LoginPage } from "@/components/LoginPage";
 
 interface Contact {
   id: number;
@@ -20,13 +21,23 @@ interface NewsItem {
   description: string;
 }
 
+interface User {
+  id: number;
+  username: string;
+  role: string;
+}
+
 const CONTACTS_URL = "https://functions.poehali.dev/8ac292f9-91df-4949-911c-f0fee6ad4870";
 const NEWS_URL = "https://functions.poehali.dev/747ed546-8975-4aa7-8e70-93b99f858cad";
+const AUTH_URL = "https://functions.poehali.dev/26237d07-d352-46bf-852b-1ec3f06d3086";
 
 const Index = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(localStorage.getItem('sessionToken'));
+  const [user, setUser] = useState<User | null>(null);
 
   const fetchData = async () => {
     const [contactsRes, newsRes] = await Promise.all([
@@ -39,7 +50,47 @@ const Index = () => {
 
   useEffect(() => {
     fetchData();
+    if (sessionToken) {
+      checkAuth();
+    }
   }, []);
+
+  const checkAuth = async () => {
+    if (!sessionToken) return;
+    
+    try {
+      const response = await fetch(AUTH_URL, {
+        headers: { 'X-Session-Token': sessionToken }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      } else {
+        localStorage.removeItem('sessionToken');
+        setSessionToken(null);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    }
+  };
+
+  const handleLogin = (token: string, role: string) => {
+    localStorage.setItem('sessionToken', token);
+    setSessionToken(token);
+    setUser({ id: 0, username: '', role });
+    setLoginOpen(false);
+    setAdminOpen(true);
+    checkAuth();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sessionToken');
+    setSessionToken(null);
+    setUser(null);
+    setAdminOpen(false);
+  };
 
   const openTelegram = (username: string) => {
     window.open(`https://t.me/${username}`, '_blank');
@@ -98,19 +149,41 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="mt-16 text-center">
-          <Button 
-            variant="outline" 
-            onClick={() => setAdminOpen(true)}
-            className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 hover:border-purple-400"
-          >
-            <Icon name="Settings" size={18} className="mr-2" />
-            Редактировать контакты
-          </Button>
+        <div className="mt-16 text-center flex gap-4 justify-center">
+          {user ? (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setAdminOpen(true)}
+                className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 hover:border-purple-400"
+              >
+                <Icon name="Settings" size={18} className="mr-2" />
+                Панель управления
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:border-red-400"
+              >
+                <Icon name="LogOut" size={18} className="mr-2" />
+                Выйти
+              </Button>
+            </>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={() => setLoginOpen(true)}
+              className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 hover:border-purple-400"
+            >
+              <Icon name="LogIn" size={18} className="mr-2" />
+              Войти
+            </Button>
+          )}
         </div>
       </div>
 
-      <AdminPanel open={adminOpen} onOpenChange={setAdminOpen} onDataUpdate={fetchData} />
+      {loginOpen && <LoginPage onLogin={handleLogin} />}
+      {user && <AdminPanel open={adminOpen} onOpenChange={setAdminOpen} onDataUpdate={fetchData} sessionToken={sessionToken} user={user} />}
     </div>
   );
 };
