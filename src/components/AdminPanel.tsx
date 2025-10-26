@@ -73,9 +73,10 @@ interface SortableContactProps {
   onEdit: (contact: Contact) => void;
   onDelete: (id: number) => void;
   canEdit: boolean;
+  editorName?: string;
 }
 
-const SortableContact = ({ contact, onEdit, onDelete, canEdit }: SortableContactProps) => {
+const SortableContact = ({ contact, onEdit, onDelete, canEdit, editorName }: SortableContactProps) => {
   const {
     attributes,
     listeners,
@@ -96,10 +97,16 @@ const SortableContact = ({ contact, onEdit, onDelete, canEdit }: SortableContact
           <div {...attributes} {...listeners} className="cursor-move touch-none">
             <Icon name="GripVertical" size={20} className="text-gray-500" />
           </div>
-          <div>
+          <div className="flex-1">
             <h4 className="font-bold text-white">{contact.name}</h4>
             <p className="text-sm text-gray-400">{contact.role}</p>
             <p className="text-sm text-gray-500">@{contact.telegram}</p>
+            {editorName && (
+              <p className="text-xs text-cyan-400 mt-1">
+                <Icon name="User" size={12} className="inline mr-1" />
+                Создал: {editorName}
+              </p>
+            )}
           </div>
         </div>
         {canEdit && (
@@ -134,6 +141,7 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
   const [newEditor, setNewEditor] = useState({ username: '', password: '' });
   const [changePassword, setChangePassword] = useState({ old: '', new: '', confirm: '' });
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -156,6 +164,12 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
     if (response.ok) {
       const data = await response.json();
       setEditors(data);
+      
+      const map: Record<number, string> = { [user.id]: 'admin' };
+      data.forEach((editor: Editor) => {
+        map[editor.id] = editor.username;
+      });
+      setUsersMap(map);
     }
   };
 
@@ -472,6 +486,7 @@ export const AdminPanel = ({ open, onOpenChange, onDataUpdate, sessionToken, use
                         onEdit={setEditingContact}
                         onDelete={deleteContact}
                         canEdit={true}
+                        editorName={contact.created_by ? usersMap[contact.created_by] : undefined}
                       />
                     ))}
                   </div>
