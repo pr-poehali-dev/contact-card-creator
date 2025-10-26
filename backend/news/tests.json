@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Get all news",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "skip"
+    },
+    {
+      "name": "Create new news",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "title": "Тестовая новость",
+        "description": "Описание тестовой новости",
+        "date": "26 октября 2025"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "title": "Тестовая новость",
+        "description": "Описание тестовой новости"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

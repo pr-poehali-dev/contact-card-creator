@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Get all contacts",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "skip"
+    },
+    {
+      "name": "Create new contact",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "name": "Тест Контакт",
+        "role": "Тестировщик",
+        "telegram": "testuser",
+        "color": "from-green-500 to-blue-500"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "name": "Тест Контакт",
+        "role": "Тестировщик",
+        "telegram": "testuser"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
