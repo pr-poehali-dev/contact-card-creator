@@ -55,7 +55,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             user_id, password_hash, role = user
             
-            if not bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
+            # password_hash из БД уже в формате bytes (bytea в PostgreSQL)
+            password_hash_bytes = password_hash if isinstance(password_hash, bytes) else password_hash.encode('utf-8')
+            
+            if not bcrypt.checkpw(password.encode('utf-8'), password_hash_bytes):
                 return {
                     'statusCode': 401,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
